@@ -1,0 +1,11 @@
+scapy
+tk
+pystray
+py-notifier
+psutil
+pytest
+colorama
+pyinstaller
+pygame
+plyer
+Pillow
