@@ -25,33 +25,40 @@
 ## 🧰 Tech Stack
 
 - 🐍 Python  
-- 📦 Conda  
+- 📦 pip (package management)  
 - 🖼️ Tkinter (for GUI)  
-- 📡 Scapy or similar for packet sniffing *(if used)*  
+- 📡 Scapy *(or similar for packet sniffing, if used)*  
 
 ---
 
-## 📦 Quick Install
+## 📦 Quick Install (Using pip)
 
 ```bash
-# 1. Clone it
+# 1. Clone the project
 git clone https://github.com/SriteXcode/alienwifidetector
 cd alienwifidetector
 
-# 2. Setup Conda environment
-conda env create -f conda.yml
-conda activate alienwifidetector
+# 2. Create and activate a virtual environment (optional but recommended)
+python -m venv venv
+# On Windows:
+venv\Scripts\activate
+# On Linux/macOS:
+source venv/bin/activate
 
-# 3. Launch the beast
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Launch the beast
 python main.py
-🧠 Tip: Replace main.py with your actual entry script if it's named differently.
+🧠 Tip: Replace main.py with your actual entry point if it’s different.
 
 👨‍🔬 Testing (with 💥 Pytest)
 bash
 Copy
 Edit
-conda activate alienwifidetector
 pytest
+Make sure you have test files set up (e.g. tests/ directory or test_*.py files).
+
 🧑‍🚀 Why This Exists
 WiFi spoofing is no joke. Evil Twins can:
 
@@ -61,37 +68,38 @@ Trick users into fake networks
 
 Hijack your data traffic
 
-AlienWiFiDetector gives you:
+AlienWiFiDetector helps you:
 
-Early detection
+Detect threats early
 
-Noise-level alerts
+Get instant alerts
 
-Simple logs & UI
+View simple logs in a clean UI
 
-Stay alert, stay protected.
+Stay alert. Stay protected. 🛡️
 
 🛠️ Contribute Like a Hacker
-Pull requests welcome.
-Feel like adding dark mode, CLI support, or a toast notification?
+Pull requests are welcome! Want to add:
 
-Fork it, build it, and show off 😎
+🖤 Dark mode?
+
+⚙️ CLI support?
+
+🔔 Toast notifications?
+
+Go wild 💻
 
 bash
 Copy
 Edit
 git checkout -b feature/fancy-alerts
 📄 License
-MIT — because good tools should stay free.
+This project is licensed under the MIT License — because good tools should stay free.
 
 🌐 Online Docs?
-Coming soon... maybe Docsify? 😉
+Coming soon... maybe with Docsify? 👀
 
 👁️‍🗨️ Stay paranoid. Stay protected.
 yaml
 Copy
 Edit
-
----
-
-Let me know if you want help generating a logo/banner or setting up a sexy Docsify site to match this energy 😏💻
