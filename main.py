@@ -194,3 +194,5 @@ root.protocol("WM_DELETE_WINDOW", minimize_to_tray)
 # Start background thread
 threading.Thread(target=update_gui, daemon=True).start()
 root.mainloop()
+
+

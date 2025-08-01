@@ -12,6 +12,8 @@ import pygame
 import pystray
 from pystray import MenuItem as item
 from PIL import Image
+import pyperclip  # <-- Add at top for clipboard
+from tkinter import filedialog
 
 # Initialize pygame for sound
 pygame.mixer.init()
@@ -19,6 +21,29 @@ pygame.mixer.init()
 # Globals
 log_history = []
 already_alerted = set()
+
+
+class ToolTip:
+    def __init__(self, widget):
+        self.widget = widget
+        self.tipwindow = None
+
+    def showtip(self, text, x, y):
+        self.hidetip()
+        self.tipwindow = Toplevel(self.widget)
+        self.tipwindow.wm_overrideredirect(True)
+        self.tipwindow.wm_geometry(f"+{x+20}+{y+20}")
+        label = Label(self.tipwindow, text=text, background="#222", foreground="white",
+                      relief="solid", borderwidth=1, font=("Arial", 10))
+        label.pack(ipadx=4, ipady=2)
+
+    def hidetip(self, event=None):
+        tw = self.tipwindow
+        self.tipwindow = None
+        if tw:
+            tw.destroy()
+
+
 
 # ------------- WiFi Detection ------------- #
 def get_wifi_networks():
@@ -61,7 +86,7 @@ def send_notification(mac, ssids):
         timeout=8
     )
     try:
-        pygame.mixer.music.load("alert.wav")
+        pygame.mixer.music.load("alienwifidetector/alert.wav")
         pygame.mixer.music.play()
     except Exception as e:
         print(f"Error playing sound: {e}")
@@ -109,19 +134,218 @@ history_list.pack(padx=10, pady=10)
 wifi_tab = Frame(notebook, bg="#0d0d0d")
 notebook.add(wifi_tab, text="\ud83d\udcf6 WiFi Info")
 
-wifi_listbox = Listbox(wifi_tab, width=100, height=20, bg="black", fg="white", font=("Courier", 10))
-wifi_listbox.pack(side=LEFT, padx=(10, 0), pady=10, fill=BOTH, expand=True)
+wifi_listbox = Listbox(wifi_tab, width=40, height=20, bg="black", fg="white", font=("Courier", 10))
+wifi_listbox.pack(side=BOTTOM, padx=(10, 0), pady=10, fill=BOTH, expand=True)
 
-scrollbar = Scrollbar(wifi_tab, orient=VERTICAL, command=wifi_listbox.yview)
-scrollbar.pack(side=LEFT, fill=Y, pady=10)
-wifi_listbox.config(yscrollcommand=scrollbar.set)
+# scrollbar = Scrollbar(wifi_tab, orient=VERTICAL, command=wifi_listbox.yview)
+# scrollbar.pack(side=LEFT, fill=Y, pady=10)
+# wifi_listbox.config(yscrollcommand=scrollbar.set)
 
 try:
     refresh_icon = PhotoImage(file="alienwifidetector/refresh.png")
+    # Optionally resize the icon to 24x24 pixels for better appearance
+    refresh_icon = refresh_icon.subsample(
+        max(refresh_icon.width() // 24, 1),
+        max(refresh_icon.height() // 24, 1)
+    )
 except:
     refresh_icon = None
 
-Button(wifi_tab, image=refresh_icon, text="Refresh", compound=LEFT, command=lambda: list_wifi_networks()).pack(side=RIGHT, padx=10, pady=10)
+Button(wifi_tab, image=refresh_icon, text="Refresh", compound=LEFT, command=lambda: list_wifi_networks()).pack(side=TOP, padx=0, pady=10)
+
+
+
+
+
+import pyperclip  # <-- Add at top for clipboard
+
+# === Tab 4 - Connected Network History === #
+connected_tab = Frame(notebook, bg="#0d0d0d")
+notebook.add(connected_tab, text="\U0001F4C2 Connected History")
+
+Label(connected_tab, text="Connected Network History", font=("Arial", 16, "bold"), fg="white", bg="#0d0d0d").pack(pady=10)
+
+# --- Search Bar ---
+search_var = StringVar()
+def filter_connected_list(*args):
+    search = search_var.get().lower()
+    connected_list.delete(0, END)
+    for row in connected_history_data:
+        display = f"SSID: {row[0]} | Status: {row[1]} | Blocked: {row[2]} | Password: {row[3]}"
+        if search in row[0].lower():
+            connected_list.insert(END, display)
+
+search_var.trace("w", filter_connected_list)
+Entry(connected_tab, textvariable=search_var, font=("Arial", 12), width=40).pack(pady=5)
+
+connected_list = Listbox(connected_tab, width=100, height=20, bg="black", fg="white", font=("Courier", 10))
+connected_list.pack(padx=10, pady=10)
+
+tooltip = ToolTip(connected_list)
+
+def on_motion(event):
+    try:
+        index = connected_list.nearest(event.y)
+        if index >= 0 and index < len(connected_history_data):
+            password = connected_history_data[index][3]
+            x, y = event.x_root, event.y_root
+            tooltip.showtip(f"Password: {password}", x, y)
+    except:
+        tooltip.hidetip()
+
+def on_leave(event):
+    tooltip.hidetip()
+
+connected_list.bind("<Motion>", on_motion)
+connected_list.bind("<Leave>", on_leave)
+
+# --- Fetch blocked profiles ---
+def get_blocked_profiles():
+    try:
+        filters_output = subprocess.check_output(['netsh', 'wlan', 'show', 'filters'], encoding='utf-8')
+        blocked = re.findall(r"Network\s+type\s+:\s+Infrastructure\s+SSID\s+:\s+(.*)", filters_output)
+        return [b.strip() for b in blocked]
+    except Exception:
+        return []
+
+def get_connected_networks_history():
+    blocked_profiles = get_blocked_profiles()
+    try:
+        profiles_output = subprocess.check_output(['netsh', 'wlan', 'show', 'profiles'], encoding='utf-8')
+        profiles = re.findall(r"All User Profile\s*:\s*(.*)", profiles_output)
+    except Exception as e:
+        connected_list.delete(0, END)
+        connected_list.insert(END, f"Error fetching profiles: {e}")
+        return
+
+    try:
+        current_output = subprocess.check_output(['netsh', 'wlan', 'show', 'interfaces'], encoding='utf-8')
+        current_ssid_match = re.search(r"^\s*SSID\s*:\s*(.+)$", current_output, re.MULTILINE)
+        current_ssid = current_ssid_match.group(1).strip() if current_ssid_match else None
+        current_state_match = re.search(r"^\s*State\s*:\s*(.+)$", current_output, re.MULTILINE)
+        current_state = current_state_match.group(1).strip() if current_state_match else None
+    except Exception:
+        current_ssid = None
+        current_state = None
+
+    connected_list.delete(0, END)
+    global connected_history_data
+    connected_history_data = []
+
+    for profile in profiles:
+        profile = profile.strip()
+        try:
+            detail_output = subprocess.check_output(['netsh', 'wlan', 'show', 'profile', f'name={profile}', 'key=clear'], encoding='utf-8', errors='ignore')
+            password_match = re.search(r"Key Content\s*:\s*(.*)", detail_output)
+            password = password_match.group(1).strip() if password_match else "(None)"
+        except Exception:
+            password = "(Error)"
+
+        if current_ssid and profile == current_ssid:
+            status = "Connected" if current_state and "connected" in current_state.lower() else "Disconnected"
+        else:
+            status = "Disconnected"
+
+        blocked = "Blocked" if profile in blocked_profiles else "Allowed"
+        connected_history_data.append([profile, status, blocked, password])
+
+    # --- Insert with Colors ---
+    for row in connected_history_data:
+        display = f"SSID: {row[0]} | Status: {row[1]} | Blocked: {row[2]} | Password: {row[3]}"
+        idx = connected_list.size()
+        connected_list.insert(END, display)
+        # Color coding
+        if row[1] == "Connected":
+            connected_list.itemconfig(idx, {'fg': 'green'})
+        elif row[2] == "Blocked":
+            connected_list.itemconfig(idx, {'fg': 'red'})
+        else:
+            connected_list.itemconfig(idx, {'fg': 'white'})
+
+
+def export_connected_to_csv():
+    if not connected_history_data:
+        messagebox.showinfo("Export", "No connected networks to export.")
+        return
+    
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".csv",
+        filetypes=[("CSV Files", "*.csv")],
+        title="Save Connected Networks As"
+    )
+    if not file_path:  # User cancelled
+        return
+    
+    try:
+        with open(file_path, "w", newline='', encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(["SSID", "Status", "Blocked", "Password"])
+            for row in connected_history_data:
+                writer.writerow(row)
+        messagebox.showinfo("Export", f"Exported successfully to:\n{file_path}")
+    except Exception as e:
+        messagebox.showerror("Export Error", f"Failed to export: {e}")
+
+# --- Right-Click Context Menu ---
+context_menu = Menu(connected_tab, tearoff=0)
+def on_right_click(event):
+    try:
+        index = connected_list.curselection()[0]
+        selected_item = connected_history_data[index][0]
+        context_menu.delete(0, END)
+        context_menu.add_command(label="Disconnect", command=lambda: disconnect_wifi(selected_item))
+        context_menu.add_command(label="Delete", command=lambda: delete_profile(selected_item))
+        context_menu.post(event.x_root, event.y_root)
+    except:
+        pass
+
+connected_list.bind("<Button-3>", on_right_click)
+
+def disconnect_wifi(ssid):
+    if messagebox.askyesno("Confirm", f"Disconnect from '{ssid}'?"):
+        try:
+            subprocess.run(['netsh', 'wlan', 'disconnect'], check=True)
+            messagebox.showinfo("Disconnect", f"Disconnected from {ssid}.")
+            get_connected_networks_history()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to disconnect: {e}")
+
+def delete_profile(ssid):
+    if messagebox.askyesno("Confirm", f"Delete Wi-Fi profile '{ssid}'?"):
+        try:
+            subprocess.run(['netsh', 'wlan', 'delete', 'profile', f'name={ssid}'], check=True)
+            messagebox.showinfo("Delete", f"Deleted profile {ssid}.")
+            get_connected_networks_history()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to delete: {e}")
+
+# --- Double-Click to Copy Password ---
+def copy_password(event):
+    try:
+        index = connected_list.curselection()[0]
+        password = connected_history_data[index][3]
+        pyperclip.copy(password)
+        messagebox.showinfo("Copied", f"Password copied to clipboard:\n{password}")
+    except:
+        pass
+
+connected_list.bind("<Double-1>", copy_password)
+
+# Buttons
+btn_frame = Frame(connected_tab, bg="#0d0d0d")
+btn_frame.pack(pady=10)
+Button(btn_frame, text="Refresh", command=get_connected_networks_history, bg="red", fg="white", font=("Arial", 12)).pack(side=LEFT, padx=5)
+Button(btn_frame, text="Export CSV", command=export_connected_to_csv, bg="green", fg="white", font=("Arial", 12)).pack(side=LEFT, padx=5)
+
+# Initial load
+get_connected_networks_history()
+
+
+
+
+
+
+
 
 # ------------- Background Threads ------------- #
 def update_gui():
@@ -176,16 +400,37 @@ def list_wifi_networks():
     except Exception as e:
         wifi_listbox.insert(END, f"Error fetching WiFi: {e}")
 
+def auto_refresh_wifi():
+    while True:
+        prev_networks = getattr(auto_refresh_wifi, "prev_networks", set())
+        list_wifi_networks()
+        # Get current MAC addresses
+        try:
+            result = subprocess.check_output(["netsh", "wlan", "show", "network", "mode=Bssid"],
+                             shell=True, text=True, encoding='utf-8')
+            current_macs = set()
+            for line in result.splitlines():
+                bssid_match = re.match(r"\s*BSSID\s+\d+\s+:\s+([0-9A-Fa-f:]+)", line)
+                if bssid_match:
+                    current_macs.add(bssid_match.group(1).strip())
+            # Play sound if new device detected
+            new_devices = current_macs - prev_networks
+            if new_devices:
+                try:
+                    pygame.mixer.music.load("alienwifidetector/alert.wav")
+                    pygame.mixer.music.play()
+                except Exception as e:
+                    print(f"Error playing sound: {e}")
+            auto_refresh_wifi.prev_networks = current_macs
+        except Exception as e:
+            pass
+        time.sleep(30)
+        
 
 threading.Thread(target=update_gui, daemon=True).start()
 threading.Thread(target=lambda: auto_refresh_wifi(), daemon=True).start()
 
 
-
-def auto_refresh_wifi():
-    while True:
-        list_wifi_networks()
-        time.sleep(30)
 
 # ------------- System Tray Integration ------------- #
 def show_window(icon=None, item=None):
@@ -202,11 +447,15 @@ def quit_app(icon=None, item=None):
 def minimize_to_tray():
     root.withdraw()
     image = Image.open("alienwifidetector/icon.png")
+    
     menu = (item('Show', show_window), item('Exit', quit_app))
     icon = pystray.Icon("WiFi Clone Detector", image, "WiFi Clone Detector", menu)
-
+    def on_clicked(show, menu):
+        show_window(menu)
+    icon.on_click = on_clicked 
     def setup(icon):
         icon.visible = True
+
 
     threading.Thread(target=lambda: icon.run(setup), daemon=True).start()
 
