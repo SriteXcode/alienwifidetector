@@ -1,0 +1,29 @@
+# UTF-8
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(1,0,0,0),
+    prodvers=(1,0,0,0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0,0)
+  ),
+  kids=[
+    StringFileInfo(
+      [
+      StringTable(
+        '040904B0',
+        [StringStruct('CompanyName', 'Ritesh Kumar Yadav & Prem'),
+        StringStruct('FileDescription', 'WiFi Clone Detector'),
+        StringStruct('FileVersion', '1.0.0'),
+        StringStruct('InternalName', 'WiFi Clone Detector'),
+        StringStruct('OriginalFilename', 'WiFi Clone Detector.exe'),
+        StringStruct('ProductName', 'WiFi Clone Detector'),
+        StringStruct('ProductVersion', '1.0.0')])
+      ]
+    ),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)
